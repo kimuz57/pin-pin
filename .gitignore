@@ -1,0 +1,12 @@
+# Dependencies
+node_modules/
+
+# ภาพต้นฉบับความละเอียดสูงที่ root เท่านั้น (ไฟล์ใหญ่ ไม่ commit)
+# หมายเหตุ: ต้องมี / นำหน้า เพื่อไม่ให้ไปโดน public/textures/ ที่ต้องใช้จริง
+/textures/
+
+# Logs / OS
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db

@@ -1,0 +1,18 @@
+{
+  "name": "deep-space-wait",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Deep Space count-up scene — backend time source + SSE + obfuscated client",
+  "scripts": {
+    "start": "node server.js",
+    "build:img": "python scripts/resize-textures.py",
+    "build:js": "node scripts/obfuscate.js",
+    "build": "npm run build:img && npm run build:js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "javascript-obfuscator": "^4.1.1"
+  }
+}
