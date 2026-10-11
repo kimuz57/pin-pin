@@ -12,7 +12,14 @@ const MEMORY_QUOTE = '"Wait for something special to happen."';
 const ORBIT_SPEED_KM_S = 230; // ความเร็วระบบสุริยะรอบทางช้างเผือก (กม./วินาที)
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+
+// host/port: ใช้ CLI arg ก่อน -> env -> ค่า default (127.0.0.1:3002)
+function cliArg(flag) {
+  const i = process.argv.indexOf(flag);
+  return i !== -1 ? process.argv[i + 1] : undefined;
+}
+const HOST = cliArg('--host') || process.env.HOST || '127.0.0.1';
+const PORT = Number(cliArg('--port') || process.env.PORT || 3002);
 
 app.use(express.static(path.join(__dirname, 'public'), {
   maxAge: '1h',
@@ -68,6 +75,6 @@ app.get('/api/events', (req, res) => {
   req.on('close', () => clearInterval(timer));
 });
 
-app.listen(PORT, () => {
-  console.log(`Deep Space server running at http://localhost:${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`Deep Space server running at http://${HOST}:${PORT}`);
 });

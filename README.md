@@ -5,7 +5,7 @@
 จุดเด่นของสถาปัตยกรรม:
 - **เวลาจัดการที่ฝั่ง Server** แล้วส่งให้หน้าเว็บผ่าน **SSE** — จุดเริ่มต้น (start date) ไม่ถูกส่งลงไปในโค้ดฝั่ง client ทำให้เปิด F12 ก็แก้ต้นทางไม่ได้
 - โค้ดฝั่ง client ถูก **obfuscate** (javascript-obfuscator) ก่อนนำไปเสิร์ฟ เพื่อให้อ่าน/แกะยาก แต่ยังรันบนเบราว์เซอร์ของผู้ใช้
-- รูปภาพ texture ถูกย่อเป็น **1920x960 (Full HD)** เพื่อลดขนาดและภาระของ GPU
+- รูปภาพ texture ถูกย่อเป็น **2048x1024 (2K)** เพื่อลดขนาดและภาระของ GPU
 
 ---
 
@@ -35,7 +35,7 @@ public/                   เอาต์พุตที่เสิร์ฟจ
   index.html
   space3d.js              (obfuscated)
   ui.js                   (obfuscated)
-  textures/               (1920x960)
+  textures/               (2048x1024)
 
 textures/                 ภาพต้นฉบับความละเอียดสูง (8K/16K) — ใช้ตอน build
                           *ไม่ถูก commit ขึ้น git (ดู .gitignore)
@@ -50,14 +50,17 @@ npm install
 npm start
 ```
 
-เปิดเบราว์เซอร์ที่ **http://localhost:3000**
+เปิดเบราว์เซอร์ที่ **http://127.0.0.1:3002**
 
 > ⚠️ ต้องรันผ่าน server เสมอ เพราะใช้ SSE ในการส่งเวลา — เปิดไฟล์ HTML แบบ static ตรง ๆ จะไม่ทำงาน
 
-เปลี่ยนพอร์ตได้ผ่าน environment variable:
+ค่าเริ่มต้นคือ bind ที่ `127.0.0.1:3002` (กำหนดไว้ใน `package.json` ผ่าน `--host`/`--port`) เปลี่ยนได้ดังนี้:
 
 ```bash
-# PowerShell
+# ผ่าน CLI arg
+npm start -- --host 0.0.0.0 --port 8080
+
+# หรือผ่าน environment variable (PowerShell)
 $env:PORT=8080; npm start
 ```
 
@@ -67,7 +70,7 @@ $env:PORT=8080; npm start
 
 ```bash
 npm run build       # รันทั้ง build:img และ build:js
-npm run build:img   # ย่อภาพจาก textures/ -> public/textures/ (1920x960)
+npm run build:img   # ย่อภาพจาก textures/ -> public/textures/ (2048x1024)
 npm run build:js    # obfuscate src/*.js -> public/ พร้อมคัดลอก index.html
 ```
 

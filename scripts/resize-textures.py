@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Resize 8K texture maps -> 1920x960 (2:1 Full HD) into public/textures/.
+"""Resize 8K texture maps -> 2048x1024 (2:1 2K) into public/textures/.
 
 Usage:  python scripts/resize-textures.py
 Original 8K masters in ./textures are NOT modified.
@@ -15,7 +15,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC_DIR = os.path.join(ROOT, "textures")
 OUT_DIR = os.path.join(ROOT, "public", "textures")
 
-TARGET_W, TARGET_H = 1920, 960  # 2:1 equirectangular = Full HD width
+TARGET_W, TARGET_H = 2048, 1024  # 2:1 equirectangular = 2K
 QUALITY = 82
 
 os.makedirs(OUT_DIR, exist_ok=True)

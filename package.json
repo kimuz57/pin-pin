@@ -4,7 +4,7 @@
   "private": true,
   "description": "Deep Space count-up scene — backend time source + SSE + obfuscated client",
   "scripts": {
-    "start": "node server.js",
+    "start": "node server.js --host 127.0.0.1 --port 3002",
     "build:img": "python scripts/resize-textures.py",
     "build:js": "node scripts/obfuscate.js",
     "build": "npm run build:img && npm run build:js"
