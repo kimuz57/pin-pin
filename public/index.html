@@ -1,255 +1,477 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="th">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Deep Space - Giant Sun & Full Earth</title>
-  
-  <!-- Three.js -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  
-  <!-- Google Fonts สำหรับ UI -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Montserrat:wght@200;300;400;500&family=Sarabun:wght@200;300;400&display=swap" rel="stylesheet">
-  
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
-    body, html { width: 100%; height: 100%; overflow: hidden; background-color: #000; font-family: 'Montserrat', 'Sarabun', sans-serif; color: #fff; }
-    
-    #webgl-canvas { 
-      position: fixed; 
-      top: 0; 
-      left: 0; 
-      width: 100vw; 
-      height: 100vh; 
-      display: block; 
-      z-index: 1;
-      pointer-events: none; 
-    }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pin - tcmg</title>
 
-    .ui-layer {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 10;
-      pointer-events: none;
-    }
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
-    .interactive { pointer-events: auto; }
+    <!-- Google Fonts สำหรับ UI -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Montserrat:wght@200;300;400;500&family=Sarabun:wght@200;300;400&display=swap"
+      rel="stylesheet"
+    />
 
-    /* Header */
-    .header-bar {
-      position: absolute;
-      top: 2.5rem;
-      left: 3rem;
-      right: 3rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-    }
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        user-select: none;
+      }
+      body,
+      html {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background-color: #000;
+        font-family: "Montserrat", "Sarabun", sans-serif;
+        color: #fff;
+      }
 
-    .title-box p { 
-      font-size: 0.75rem; 
-      letter-spacing: 0.2em; 
-      color: rgba(255, 255, 255, 0.45); 
-      margin-top: 4px; 
-    }
+      #webgl-canvas {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        display: block;
+        z-index: 1;
+        pointer-events: none;
+      }
 
-    .top-actions { display: flex; gap: 12px; }
-    .glass-btn {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      color: rgba(255, 255, 255, 0.8);
-      padding: 8px 16px;
-      border-radius: 30px;
-      font-size: 0.75rem;
-      letter-spacing: 0.1em;
-      backdrop-filter: blur(10px);
-      cursor: pointer;
-      transition: all 0.3s ease;
-    }
-    .glass-btn:hover { background: rgba(255, 255, 255, 0.15); border-color: rgba(255, 220, 150, 0.5); color: #fff; }
+      .ui-layer {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 10;
+        pointer-events: none;
+      }
 
-    /* =========================================
-       กลุ่มนาฬิกานับเวลา (อยู่ด้านบน)
-       ========================================= */
-    .center-display {
-      position: absolute; 
-      top: 19%; /* ปรับให้พอดีพ้นดวงอาทิตย์ */
-      left: 50%;          
-      transform: translateX(-50%); 
-      display: flex;
-      flex-direction: column;
-      align-items: center; 
-      text-align: center;  
-      width: 100%;
-    }
+      .interactive {
+        pointer-events: auto;
+      }
 
-    .memory-quote {
-      font-size: 0.9rem;
-      font-weight: 300;
-      letter-spacing: 0.2em;
-      color: rgba(255, 230, 200, 0.85);
-      margin-bottom: 1.5rem;
-      text-shadow: 0 0 15px rgba(0, 0, 0, 0.8);
-    }
+      /* Header */
+      .header-bar {
+        position: absolute;
+        top: 2.5rem;
+        left: 3rem;
+        right: 3rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+      }
 
-    .countdown-grid {
-      display: flex;
-      gap: 1.5rem;
-    }
+      .title-box p {
+        font-size: 0.75rem;
+        letter-spacing: 0.2em;
+        color: rgba(255, 255, 255, 0.45);
+        margin-top: 4px;
+      }
 
-    .time-slot { display: flex; flex-direction: column; align-items: center; min-width: 60px; }
-    .time-num { font-family: 'Cinzel', monospace; font-size: 3.5rem; font-weight: 600; line-height: 1; color: #fff; text-shadow: 0 0 20px rgba(255, 220, 160, 0.3); }
-    .time-label { font-size: 0.65rem; letter-spacing: 0.25em; color: rgba(255, 255, 255, 0.4); margin-top: 0.8rem; text-transform: uppercase; }
-    .colon { font-family: 'Cinzel', monospace; font-size: 2.5rem; color: rgba(255, 200, 140, 0.3); align-self: flex-start; margin-top: 0.4rem; }
+      .top-actions {
+        display: flex;
+        gap: 12px;
+      }
+      .glass-btn {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        color: rgba(255, 255, 255, 0.8);
+        padding: 8px 16px;
+        border-radius: 30px;
+        font-size: 0.75rem;
+        letter-spacing: 0.1em;
+        backdrop-filter: blur(10px);
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+      .glass-btn:hover {
+        background: rgba(255, 255, 255, 0.15);
+        border-color: rgba(255, 220, 150, 0.5);
+        color: #fff;
+      }
 
-    /* =========================================
-       กลุ่มข้อความ Earth traveled (อยู่ชิดขอบล่างจอ)
-       ========================================= */
-    .bottom-message {
-      position: absolute;
-      bottom: 8%; /* ระยะเกาะขอบล่างจอ */
-      left: 50%;
-      transform: translateX(-50%);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
-      gap: 1.1rem;
-      width: 100%;
-    }
+      /* Countdown Display */
+      .center-display {
+        position: absolute;
+        top: 19%;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        width: 100%;
+      }
 
-    .bottom-message-small {
-      font-size: 0.65rem;
-      letter-spacing: 0.15em;
-      color: rgba(180, 200, 255, 0.6);
-      text-transform: uppercase;
-    }
+      .memory-quote {
+        font-size: 0.9rem;
+        font-weight: 300;
+        letter-spacing: 0.2em;
+        color: rgba(255, 230, 200, 0.85);
+        margin-bottom: 1.5rem;
+        text-shadow: 0 0 15px rgba(0, 0, 0, 0.8);
+      }
 
-    .bottom-message-desc {
-      font-size: 1rem;
-      font-weight: 300;
-      color: rgba(255, 255, 255, 0.8);
-      line-height: 1.8;
-    }
+      .countdown-grid {
+        display: flex;
+        gap: 1.5rem;
+      }
 
-    #distance-travelled {
-      font-weight: 600;
-      color: #ffda75;
-      text-shadow: 0 0 10px rgba(255, 200, 100, 0.4);
-      font-size: 1.15rem;
-      letter-spacing: 0.05em;
-    }
+      .time-slot {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-width: 60px;
+      }
+      .time-num {
+        font-family: "Cinzel", monospace;
+        font-size: 3.5rem;
+        font-weight: 600;
+        line-height: 1;
+        color: #fff;
+        text-shadow: 0 0 20px rgba(255, 220, 160, 0.3);
+      }
+      .time-label {
+        font-size: 0.65rem;
+        letter-spacing: 0.25em;
+        color: rgba(255, 255, 255, 0.4);
+        margin-top: 0.8rem;
+        text-transform: uppercase;
+      }
+      .colon {
+        font-family: "Cinzel", monospace;
+        font-size: 2.5rem;
+        color: rgba(255, 200, 140, 0.3);
+        align-self: flex-start;
+        margin-top: 0.4rem;
+      }
 
-    .bottom-message-highlight {
-      font-size: 1.25rem;
-      font-weight: 600;
-      color: #fff;
-    }
+      /* Bottom Message */
+      .bottom-message {
+        position: absolute;
+        bottom: 8%;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 1.1rem;
+        width: 100%;
+      }
 
-    .divider {
-      width: 250px; 
-      height: 1px;
-      background: rgba(255, 255, 255, 0.25);
-      margin: 0.5rem 0; 
-    }
+      .bottom-message-small {
+        font-size: 0.65rem;
+        letter-spacing: 0.15em;
+        color: rgba(180, 200, 255, 0.6);
+        text-transform: uppercase;
+      }
 
-    /* Responsive มือถือ */
-    /* =========================================
-       Responsive มือถือ (ปรับปรุงใหม่)
-       ========================================= */
-    @media (max-width: 768px) {
-      .header-bar { top: 1.5rem; left: 1.5rem; right: 1.5rem; }
-      
-      /* ขยับกลุ่มนาฬิกาลงมา */
-      .center-display { top: 22%; } 
-      
-      .countdown-grid { gap: 0.6rem; }
-      .time-slot { min-width: 50px; }
-      .time-num { font-size: 2.2rem; }
-      .colon { font-size: 1.8rem; }
-      .memory-quote { font-size: 0.75rem; }
-      
-      /* ขยับข้อความด้านล่างขึ้นมา */
-      .bottom-message { bottom: 12%; gap: 0.8rem; } 
-      .bottom-message-desc { font-size: 0.85rem; }
-      .bottom-message-highlight { font-size: 0.95rem; }
-      #distance-travelled { font-size: 1rem; }
-    }
-    /* =========================================
-       Responsive iPad/Tablet (จอกว้าง 501px ถึง 1024px) 
-       ขยายตัวหนังสือให้ใหญ่ขึ้น เหมาะกับจอความละเอียดสูง
-       ========================================= */
-       
-    @media (min-width: 501px) and (max-width: 1024px) {
-      .center-display { top: 25%; } 
-      
-      .time-num { font-size: 4.5rem; } /* ขยายเลขเวลาให้ใหญ่ขึ้นมาก */
-      .time-label { font-size: 0.8rem; }
-      .colon { font-size: 3.5rem; }
-      .memory-quote { font-size: 1.2rem; margin-bottom: 2rem; }
-      
-      .bottom-message { bottom: 10%; gap: 1.5rem; } 
-      .bottom-message-small { font-size: 0.8rem; }
-      .bottom-message-desc { font-size: 1.2rem; line-height: 2; }
-      .bottom-message-highlight { font-size: 1.4rem; }
-      #distance-travelled { font-size: 1.5rem; }
-    }
-  </style>
-</head>
-<body>
+      .bottom-message-desc {
+        font-size: 1rem;
+        font-weight: 300;
+        color: rgba(255, 255, 255, 0.8);
+        line-height: 1.8;
+      }
 
-  <!-- UI LAYER -->
-  <div class="ui-layer">
-    
-    <!-- เมนูด้านบน -->
-    <header class="header-bar">
-      <div class="title-box">
-        <!-- <p>UNTIL THE EARTH COMPLETES ITS ORBIT</p> -->
+      #distance-travelled {
+        font-weight: 600;
+        color: #ffda75;
+        text-shadow: 0 0 10px rgba(255, 200, 100, 0.4);
+        font-size: 1.15rem;
+        letter-spacing: 0.05em;
+      }
+
+      .bottom-message-highlight {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #fff;
+      }
+
+      .divider {
+        width: 250px;
+        height: 1px;
+        background: rgba(255, 255, 255, 0.25);
+        margin: 0.5rem 0;
+      }
+
+      /* Glassmorphism Popup Modal */
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0, 0, 0, 0.4);
+        backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
+        z-index: 9999;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.4s ease;
+      }
+
+      .modal-overlay.active {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .modal-box {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 16px;
+        padding: 2.2rem;
+        width: 90%;
+        max-width: 420px;
+        text-align: center;
+        box-shadow:
+          0 0 30px rgba(0, 0, 0, 0.8),
+          0 0 20px rgba(255, 220, 150, 0.1);
+      }
+
+      .modal-title {
+        font-family: "Cinzel", serif;
+        font-size: 1.3rem;
+        color: #ffda75;
+        margin-bottom: 0.5rem;
+        letter-spacing: 0.1em;
+      }
+
+      .modal-desc {
+        font-size: 0.8rem;
+        color: rgba(255, 255, 255, 0.6);
+        margin-bottom: 1.5rem;
+      }
+
+      .modal-input {
+        width: 100%;
+        padding: 12px 16px;
+        background: rgba(0, 0, 0, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 8px;
+        color: #fff;
+        font-size: 0.95rem;
+        outline: none;
+        margin-bottom: 1.2rem;
+        text-align: center;
+        transition: border-color 0.3s;
+      }
+
+      .modal-input:focus {
+        border-color: #ffda75;
+      }
+
+      .modal-btn {
+        width: 100%;
+        padding: 12px;
+        background: rgba(255, 218, 117, 0.2);
+        border: 1px solid rgba(255, 218, 117, 0.5);
+        color: #ffda75;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        letter-spacing: 0.1em;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+
+      .modal-btn:hover {
+        background: rgba(255, 218, 117, 0.4);
+        color: #fff;
+      }
+
+      /* Responsive Mobile */
+      @media (max-width: 768px) {
+        .header-bar {
+          top: 1.5rem;
+          left: 1.5rem;
+          right: 1.5rem;
+        }
+        .center-display {
+          top: 22%;
+        }
+        .countdown-grid {
+          gap: 0.6rem;
+        }
+        .time-slot {
+          min-width: 50px;
+        }
+        .time-num {
+          font-size: 2.2rem;
+        }
+        .colon {
+          font-size: 1.8rem;
+        }
+        .memory-quote {
+          font-size: 0.75rem;
+        }
+        .bottom-message {
+          bottom: 12%;
+          gap: 0.8rem;
+        }
+        .bottom-message-desc {
+          font-size: 0.85rem;
+        }
+        .bottom-message-highlight {
+          font-size: 0.95rem;
+        }
+        #distance-travelled {
+          font-size: 1rem;
+        }
+      }
+
+      /* Responsive Tablet */
+      @media (min-width: 501px) and (max-width: 1024px) {
+        .center-display {
+          top: 25%;
+        }
+        .time-num {
+          font-size: 4.5rem;
+        }
+        .time-label {
+          font-size: 0.8rem;
+        }
+        .colon {
+          font-size: 3.5rem;
+        }
+        .memory-quote {
+          font-size: 1.2rem;
+          margin-bottom: 2rem;
+        }
+        .bottom-message {
+          bottom: 10%;
+          gap: 1.5rem;
+        }
+        .bottom-message-small {
+          font-size: 0.8rem;
+        }
+        .bottom-message-desc {
+          font-size: 1.2rem;
+          line-height: 2;
+        }
+        .bottom-message-highlight {
+          font-size: 1.4rem;
+        }
+        #distance-travelled {
+          font-size: 1.5rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- UI LAYER -->
+    <div class="ui-layer">
+      <header class="header-bar">
+        <div class="title-box"></div>
+        <div class="top-actions interactive">
+          <button class="glass-btn" id="audio-btn">♪ SOUND</button>
+        </div>
+      </header>
+
+      <main class="center-display interactive">
+        <div class="memory-quote" id="display-quote">
+          "Wait for something special to happen."
+        </div>
+        <div class="countdown-grid">
+          <div class="time-slot">
+            <span class="time-num" id="days">00</span>
+            <span class="time-label">Days</span>
+          </div>
+          <span class="colon">:</span>
+          <div class="time-slot">
+            <span class="time-num" id="hours">00</span>
+            <span class="time-label">Hours</span>
+          </div>
+          <span class="colon">:</span>
+          <div class="time-slot">
+            <span class="time-num" id="minutes">00</span>
+            <span class="time-label">Mins</span>
+          </div>
+          <span class="colon">:</span>
+          <div class="time-slot">
+            <span class="time-num" id="seconds">00</span>
+            <span class="time-label">Secs</span>
+          </div>
+        </div>
+      </main>
+
+      <div class="bottom-message">
+        <div class="bottom-message-small">SINCE THAT MOMENT</div>
+        <div class="bottom-message-desc">
+          Earth has traveled
+          <span id="distance-travelled">0</span> kilometers<br />
+          around the Milky Way.
+        </div>
+        <div class="divider"></div>
+        <div class="bottom-message-desc">
+          But I'm still in the same place, waiting for someone.
+        </div>
       </div>
-      <div class="top-actions interactive">
-        <button class="glass-btn" id="audio-btn">♪ SOUND</button>
-      </div>
-    </header>
-
-    <!-- นาฬิกานับเวลา (ตรงกลางค่อนไปด้านบน) -->
-    <main class="center-display interactive">
-      <div class="memory-quote" id="display-quote">"Wait for something special to happen."</div>
-      <div class="countdown-grid">
-        <div class="time-slot"><span class="time-num" id="days">00</span><span class="time-label">Days</span></div>
-        <span class="colon">:</span>
-        <div class="time-slot"><span class="time-num" id="hours">00</span><span class="time-label">Hours</span></div>
-        <span class="colon">:</span>
-        <div class="time-slot"><span class="time-num" id="minutes">00</span><span class="time-label">Mins</span></div>
-        <span class="colon">:</span>
-        <div class="time-slot"><span class="time-num" id="seconds">00</span><span class="time-label">Secs</span></div>
-      </div>
-    </main>
-
-    <!-- ข้อความล่าง (แยกส่วนออกมาแล้ว จะเกาะชิดขอบล่างเสมอ) -->
-    <div class="bottom-message">
-      <div class="bottom-message-small">SINCE THAT MOMENT</div>
-      <div class="bottom-message-desc">
-        Earth has traveled <span id="distance-travelled">0</span> kilometers<br>
-        around the Milky Way.
-      </div>
-      <div class="divider"></div>
-
-      <div class="bottom-message-desc">But I'm still in the same place, waiting for someone.</div>
     </div>
 
-  </div>
+    <!-- CANVAS LAYER -->
+    <canvas id="webgl-canvas"></canvas>
 
-  <!-- CANVAS LAYER -->
-  <canvas id="webgl-canvas"></canvas>
+    <!-- กล่องสำหรับฝัง YouTube Iframe -->
+    <div
+      id="yt-player-container"
+      style="
+        position: fixed;
+        bottom: 0;
+        right: 0;
+        width: 1px;
+        height: 1px;
+        opacity: 0.01;
+        pointer-events: none;
+        z-index: -1;
+        overflow: hidden;
+      "
+    ></div>
 
-  <!-- สคริปต์ -->
-  <script src="ui.js"></script>
-  <script src="space3d.js"></script>
+    <!-- Modal สำหรับเปลี่ยนเพลง (/change-bg-sound) -->
+    <div class="modal-overlay" id="music-modal">
+      <div class="modal-box">
+        <div id="step-password">
+          <div class="modal-title">AUTHENTICATION</div>
+          <div class="modal-desc">Enter security passcode to modify audio</div>
+          <input
+            type="password"
+            id="admin-pass"
+            class="modal-input"
+            placeholder="Enter Passcode..."
+            autocomplete="off"
+          />
+          <button class="modal-btn" id="btn-verify-pass">VERIFY</button>
+        </div>
 
-</body>
+        <div id="step-link" style="display: none;">
+          <div class="modal-title">CHANGE MUSIC</div>
+          <div class="modal-desc">Paste YouTube video or playlist URL</div>
+          <input
+            type="text"
+            id="yt-url"
+            class="modal-input"
+            placeholder="https://youtu.be/... or playlist link"
+            autocomplete="off"
+          />
+          <button class="modal-btn" id="btn-save-music">APPLY & PLAY</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- สคริปต์ -->
+    <script src="ui.js?v=6"></script>
+    <script src="space3d.js?v=6"></script>
+  </body>
 </html>
