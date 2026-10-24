@@ -1,5 +1,5 @@
 // ==========================================
-// ui.js — ระบบเวลา SSE + ระบบคิวเพลงอัจฉริยะ (เล่น Playlist แบบ Single Video Queue)
+// ui.js — ระบบเวลา SSE + YouTube Audio (รองรับทั้ง Chrome & Safari 100%)
 // ==========================================
 
 // 1. DOM Elements
@@ -36,35 +36,18 @@ es.onmessage = (event) => {
 };
 
 // ==========================================
-// 3. ระบบคิวเสียง YouTube (เล่นทีละ Video ID วนลูป)
+// 3. ระบบเสียง YouTube (Safari-Compatible Persistent Iframe)
 // ==========================================
 let videoQueue = ['tGv7CUutzqU'];
 let currentTrackIndex = 0;
 let isPlaying = false;
+let isIframeReady = false;
+let pendingPlayFromGesture = false;
 let failedTracksCount = 0;
 
 const audioBtn = document.getElementById('audio-btn');
 const playerContainer =
   document.getElementById('yt-player-container') || document.getElementById('yt-player');
-
-function applyMusicData(data) {
-  if (!data) return;
-  if (Array.isArray(data.videos) && data.videos.length > 0) {
-    videoQueue = data.videos;
-  } else if (data.id) {
-    videoQueue = [data.id];
-  }
-  currentTrackIndex = 0;
-  failedTracksCount = 0;
-}
-
-// ดึงรายการเพลงจาก Server ตอนเปิดเว็บ
-fetch('/api/music')
-  .then((r) => r.json())
-  .then((data) => {
-    applyMusicData(data);
-  })
-  .catch(() => {});
 
 function sendYtCommand(func, args) {
   const iframe = document.getElementById('yt-iframe');
@@ -76,82 +59,21 @@ function sendYtCommand(func, args) {
   }
 }
 
-// เล่นเพลงถัดไปในคิว (วนลูปกลับไปเพลงแรกเมื่อครบ)
-function playNextTrack() {
-  if (!isPlaying || videoQueue.length === 0) return;
-  currentTrackIndex = (currentTrackIndex + 1) % videoQueue.length;
-  loadTrackAtIndex(currentTrackIndex);
-}
+// สร้าง Iframe เตรียมไว้ตั้งแต่เปิดหน้าเว็บ (ไม่สร้างใหม่ตอนกดปุ่ม เพื่อรักษาสิทธิ์ User Gesture บน Safari)
+function initPersistentIframe(initialVideoId) {
+  if (!playerContainer || document.getElementById('yt-iframe')) return;
 
-// ดักฟังข้อความจาก YouTube Iframe
-window.addEventListener('message', (event) => {
-  if (!event.origin.includes('youtube.com')) return;
-  try {
-    const data = JSON.parse(event.data);
-
-    if (data.event === 'onReady') {
-      sendYtCommand('setVolume', [65]);
-      sendYtCommand('playVideo');
-    }
-
-    if (data.event === 'infoDelivery' && data.info) {
-      // 1 = กำลังเล่นปกติ
-      if (data.info.playerState === 1) {
-        failedTracksCount = 0;
-      }
-      // 0 = เพลงจบ -> เล่นเพลงถัดไปในคิว (หรือวนซ้ำถ้ามีเพลงเดียว)
-      if (data.info.playerState === 0) {
-        if (videoQueue.length > 1) {
-          playNextTrack();
-        } else {
-          sendYtCommand('seekTo', [0, true]);
-          sendYtCommand('playVideo');
-        }
-      }
-    }
-
-    // หากเพลงติดลิขสิทธิ์ (Error 150 / 101 / 100) ให้ข้ามไปเพลงถัดไปในคิวทันที!
-    if (data.event === 'onError') {
-      const badVideoId = videoQueue[currentTrackIndex];
-      console.warn(
-        `[Audio] เพลง ${badVideoId} ติดลิขสิทธิ์ Embed (Error ${data.info}) -> กำลังข้ามไปเพลงถัดไป...`
-      );
-      failedTracksCount++;
-
-      if (failedTracksCount < videoQueue.length) {
-        playNextTrack();
-      } else {
-        stopAudio();
-        alert(
-          'เพลงทั้งหมดในรายการนี้ถูกค่ายเพลงปิดกั้นไม่ให้เล่นนอกแอป YouTube (Error 150)\nกรุณาใช้ลิงก์เพลงที่เป็น MV หรือช่องทั่วไปที่ไม่ใช่ช่อง - Topic'
-        );
-      }
-    }
-  } catch (e) {}
-});
-
-function loadTrackAtIndex(index) {
-  if (!playerContainer || videoQueue.length === 0) return;
-
-  const videoId = videoQueue[index] || videoQueue[0];
   const origin = encodeURIComponent(window.location.origin);
-
-  // ใช้ URL แบบเพลงเดี่ยวเสมอ เพราะเบราว์เซอร์ยอมให้ Autoplay 100%
-  let embedUrl =
+  const embedUrl =
     'https://www.youtube.com/embed/' +
-    videoId +
-    '?autoplay=1&controls=0&playsinline=1&enablejsapi=1&rel=0&origin=' +
+    initialVideoId +
+    '?autoplay=0&controls=0&playsinline=1&enablejsapi=1&rel=0&origin=' +
     origin;
-
-  // ถ้ามีแค่เพลงเดียว ให้ใส่ loop=1&playlist=videoId กำกับไว้ด้วย
-  if (videoQueue.length === 1) {
-    embedUrl += '&loop=1&playlist=' + videoId;
-  }
 
   playerContainer.innerHTML =
     '<iframe id="yt-iframe" width="200" height="200" src="' +
     embedUrl +
-    '" frameborder="0" allow="autoplay; encrypted-media; compute-pressure" allowfullscreen></iframe>';
+    '" frameborder="0" allow="autoplay; encrypted-media; compute-pressure" playsinline></iframe>';
 
   const iframe = document.getElementById('yt-iframe');
   if (iframe) {
@@ -166,8 +88,89 @@ function loadTrackAtIndex(index) {
   }
 }
 
+function applyMusicData(data) {
+  if (!data) return;
+  if (Array.isArray(data.videos) && data.videos.length > 0) {
+    videoQueue = data.videos;
+  } else if (data.id) {
+    videoQueue = [data.id];
+  }
+  currentTrackIndex = 0;
+  failedTracksCount = 0;
+
+  // เตรียม Iframe ทันทีที่ได้ข้อมูลเพลง
+  initPersistentIframe(videoQueue[0]);
+}
+
+// ดึงรายการเพลงจาก Server ตอนเปิดเว็บ
+fetch('/api/music')
+  .then((r) => r.json())
+  .then((data) => {
+    applyMusicData(data);
+  })
+  .catch(() => {
+    initPersistentIframe(videoQueue[0]);
+  });
+
+// เล่นเพลงถัดไปในคิวโดยใช้ Iframe ตัวเดิม (ไม่ล้าง DOM เพื่อให้ Safari เล่นต่อเนื่องได้)
+function playNextTrack() {
+  if (!isPlaying || videoQueue.length === 0) return;
+  currentTrackIndex = (currentTrackIndex + 1) % videoQueue.length;
+  const nextVideoId = videoQueue[currentTrackIndex];
+  sendYtCommand('loadVideoById', [nextVideoId, 0]);
+  sendYtCommand('playVideo');
+}
+
+// ดักฟัง Event จาก YouTube Iframe
+window.addEventListener('message', (event) => {
+  if (!event.origin.includes('youtube.com')) return;
+  try {
+    const data = JSON.parse(event.data);
+
+    if (data.event === 'onReady') {
+      isIframeReady = true;
+      sendYtCommand('setVolume', [65]);
+      if (pendingPlayFromGesture) {
+        pendingPlayFromGesture = false;
+        const vid = videoQueue[currentTrackIndex] || videoQueue[0];
+        sendYtCommand('loadVideoById', [vid, 0]);
+        sendYtCommand('unMute');
+        sendYtCommand('playVideo');
+      }
+    }
+
+    if (data.event === 'infoDelivery' && data.info) {
+      // 1 = กำลังเล่นปกติ
+      if (data.info.playerState === 1) {
+        failedTracksCount = 0;
+      }
+      // 0 = เพลงจบ -> เล่นเพลงถัดไปในคิว หรือวนซ้ำ
+      if (data.info.playerState === 0) {
+        if (videoQueue.length > 1) {
+          playNextTrack();
+        } else {
+          sendYtCommand('seekTo', [0, true]);
+          sendYtCommand('playVideo');
+        }
+      }
+    }
+
+    // ข้ามเพลงที่ติดลิขสิทธิ์ (Error 150 / 101 / 100) โดยไม่ทำลาย Iframe
+    if (data.event === 'onError') {
+      failedTracksCount++;
+      if (failedTracksCount < videoQueue.length) {
+        playNextTrack();
+      } else {
+        stopAudio();
+        alert(
+          'เพลงในรายการนี้ติดลิขสิทธิ์ห้ามเล่นนอกแอป YouTube (Error 150)\nกรุณาใช้ลิงก์เพลงจากช่องทั่วไปที่ไม่ใช่ช่อง - Topic'
+        );
+      }
+    }
+  } catch (e) {}
+});
+
 function startAudio() {
-  if (!playerContainer) return;
   isPlaying = true;
   failedTracksCount = 0;
 
@@ -176,13 +179,25 @@ function startAudio() {
     audioBtn.innerHTML = '<span>◼</span> PAUSE';
   }
 
-  loadTrackAtIndex(currentTrackIndex);
+  // ถ้ายังไม่มี Iframe ให้สร้างก่อน
+  if (!document.getElementById('yt-iframe')) {
+    pendingPlayFromGesture = true;
+    initPersistentIframe(videoQueue[currentTrackIndex] || videoQueue[0]);
+    return;
+  }
+
+  // ส่งคำสั่งเล่นทันทีภายในจังหวะคลิก (Synchronous User Gesture สำหรับ Safari)
+  const vid = videoQueue[currentTrackIndex] || videoQueue[0];
+  sendYtCommand('unMute');
+  sendYtCommand('setVolume', [65]);
+  sendYtCommand('loadVideoById', [vid, 0]);
+  sendYtCommand('playVideo');
 }
 
 function stopAudio() {
-  if (!playerContainer) return;
-  playerContainer.innerHTML = '';
   isPlaying = false;
+  pendingPlayFromGesture = false;
+  sendYtCommand('pauseVideo');
 
   if (audioBtn) {
     audioBtn.style.borderColor = 'rgba(255, 255, 255, 0.15)';

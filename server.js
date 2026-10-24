@@ -103,7 +103,7 @@ function cliArg(flag) {
   const i = process.argv.indexOf(flag);
   return i !== -1 ? process.argv[i + 1] : undefined;
 }
-const HOST = cliArg('--host') || process.env.HOST || '127.0.0.1';
+const HOST = cliArg('--host') || process.env.HOST || '0.0.0.0';
 const PORT = Number(cliArg('--port') || process.env.PORT || 3002);
 
 app.use(
