@@ -331,6 +331,31 @@
         }
       }
 
+      /* กล่องหุ้มปุ่มเสียงสำหรับรองรับ Safari Touch */
+      .sound-wrapper {
+        position: relative;
+        display: inline-block;
+        border-radius: 30px;
+        overflow: hidden;
+      }
+
+      #yt-player-container {
+        position: absolute;
+        top: -10px;
+        left: -10px;
+        width: 140px;
+        height: 60px;
+        opacity: 0.01; /* ค่าต่ำสุดที่ Safari ยอมรับว่าไม่ซ่อน */
+        z-index: 20;
+        cursor: pointer;
+      }
+
+      /* เมื่อเพลงเล่นอยู่ ให้กดโดนปุ่ม PAUSE ของเราแทน */
+      #yt-player-container.playing-mode {
+        pointer-events: none;
+        z-index: -1;
+      }
+
       /* Responsive Tablet */
       @media (min-width: 501px) and (max-width: 1024px) {
         .center-display {
@@ -372,10 +397,15 @@
   <body>
     <!-- UI LAYER -->
     <div class="ui-layer">
+      <!-- เมนูด้านบน -->
       <header class="header-bar">
         <div class="title-box"></div>
         <div class="top-actions interactive">
-          <button class="glass-btn" id="audio-btn">♪ SOUND</button>
+          <div class="sound-wrapper">
+            <button class="glass-btn" id="audio-btn">♪ SOUND</button>
+            <!-- วาง YouTube ทับปุ่มเพื่อให้ Safari รับสัมผัสโดยตรง -->
+            <div id="yt-player-container"></div>
+          </div>
         </div>
       </header>
 
@@ -455,7 +485,7 @@
           <button class="modal-btn" id="btn-verify-pass">VERIFY</button>
         </div>
 
-        <div id="step-link" style="display: none;">
+        <div id="step-link" style="display: none">
           <div class="modal-title">CHANGE MUSIC</div>
           <div class="modal-desc">Paste YouTube video or playlist URL</div>
           <input

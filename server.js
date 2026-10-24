@@ -1,4 +1,4 @@
-// server.js — เสิร์ฟหน้าเว็บ + จัดการนับเวลา/ระยะทางผ่าน SSE + ดึงรายการเพลงจาก Playlist
+// server.js — เสิร์ฟหน้าเว็บ + SSE + คัดกรองเพลงที่เปิด Embed บนเว็บจริงได้ 100%
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
@@ -17,10 +17,44 @@ function getSavedMusic() {
       return JSON.parse(fs.readFileSync(MUSIC_FILE, 'utf8'));
     }
   } catch (e) {}
-  return { type: 'video', id: 'tGv7CUutzqU', videos: ['tGv7CUutzqU'] };
+  return { type: 'video', id: 'jfKfPfyJRdk', videos: ['jfKfPfyJRdk'] };
 }
 
-// ดึงรหัส Video ID ทั้งหมดจากหน้า Playlist ของ YouTube
+// ตรวจสอบว่าคลิปนั้นอนุญาตให้ Embed บนเว็บไซต์ภายนอกหรือไม่ (กรองช่อง - Topic ที่ติดบล็อกออก)
+function checkVideoEmbeddable(videoId) {
+  return new Promise((resolve) => {
+    const url = `https://www.youtube.com/embed/${videoId}`;
+    https
+      .get(
+        url,
+        {
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            Referer: 'https://pin.tcmg.me/',
+          },
+        },
+        (res) => {
+          let html = '';
+          res.on('data', (chunk) => (html += chunk));
+          res.on('end', () => {
+            // ถ้าในหน้า embed มีคำว่า UNPLAYABLE หรือไม่อนุญาตให้เล่นนอกเว็บ
+            if (
+              html.includes('"status":"UNPLAYABLE"') ||
+              html.includes('"playableInEmbed":false')
+            ) {
+              resolve(false);
+            } else {
+              resolve(true);
+            }
+          });
+        }
+      )
+      .on('error', () => resolve(true));
+  });
+}
+
+// ดึงรหัส Video ID ทั้งหมดจาก Playlist พร้อมกรองเฉพาะเพลงที่เล่นบนเว็บจริงได้
 function fetchPlaylistVideoIds(playlistId) {
   return new Promise((resolve) => {
     const url = `https://www.youtube.com/playlist?list=${playlistId}`;
@@ -37,26 +71,35 @@ function fetchPlaylistVideoIds(playlistId) {
         (res) => {
           let html = '';
           res.on('data', (chunk) => (html += chunk));
-          res.on('end', () => {
-            // ดึง videoId เฉพาะที่อยู่ในโครงสร้าง playlistVideoRenderer
+          res.on('end', async () => {
             const regex = /"playlistVideoRenderer":\{"videoId":"([a-zA-Z0-9_-]{11})"/g;
-            const ids = [];
+            const rawIds = [];
             let match;
             while ((match = regex.exec(html)) !== null) {
-              if (!ids.includes(match[1])) {
-                ids.push(match[1]);
+              if (!rawIds.includes(match[1])) {
+                rawIds.push(match[1]);
               }
             }
-            // Fallback หากโครงสร้างหน้าเว็บเปลี่ยน
-            if (ids.length === 0) {
+
+            if (rawIds.length === 0) {
               const fallbackRegex = /"videoId":"([a-zA-Z0-9_-]{11})"/g;
               while ((match = fallbackRegex.exec(html)) !== null) {
-                if (!ids.includes(match[1])) {
-                  ids.push(match[1]);
+                if (!rawIds.includes(match[1])) {
+                  rawIds.push(match[1]);
                 }
               }
             }
-            resolve(ids);
+
+            // ตรวจสอบทุกเพลงในลิสต์ คัดเฉพาะเพลงที่ไม่ติด Error 150 บนโดเมนจริง
+            const checks = await Promise.all(
+              rawIds.map(async (id) => ({
+                id,
+                ok: await checkVideoEmbeddable(id),
+              }))
+            );
+
+            const playableIds = checks.filter((item) => item.ok).map((item) => item.id);
+            resolve(playableIds.length > 0 ? playableIds : rawIds);
           });
         }
       )
@@ -103,27 +146,33 @@ function cliArg(flag) {
   const i = process.argv.indexOf(flag);
   return i !== -1 ? process.argv[i + 1] : undefined;
 }
-const HOST = cliArg('--host') || process.env.HOST || '0.0.0.0';
+const HOST = cliArg('--host') || process.env.HOST || '127.0.0.1';
 const PORT = Number(cliArg('--port') || process.env.PORT || 3002);
 
+// ปิดการจำแคชสำหรับไฟล์ HTML และ JS เพื่อไม่ให้ Cloudflare/Safari จำโค้ดเก่า
 app.use(
   express.static(path.join(__dirname, 'public'), {
-    maxAge: '1h',
-    immutable: false,
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.html') || filePath.endsWith('.js')) {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      }
+    },
   })
 );
 
 app.get('/change-bg-sound', (req, res) => {
+  res.set('Cache-Control', 'no-store');
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.get('/api/music', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
   const saved = getSavedMusic();
-  // ถ้าเป็น playlist ที่ยังไม่มีรายการ videos ให้ดึงให้อัตโนมัติ
-  if (saved.type === 'playlist' && (!saved.videos || saved.videos.length === 0)) {
+  if (saved.type === 'playlist' && (!saved.videos || !saved.filtered)) {
     const videos = await fetchPlaylistVideoIds(saved.id);
     if (videos.length > 0) {
       saved.videos = videos;
+      saved.filtered = true;
       fs.writeFileSync(MUSIC_FILE, JSON.stringify(saved, null, 2), 'utf8');
     }
   }
@@ -149,17 +198,15 @@ app.post('/api/music', async (req, res) => {
     return res.status(400).json({ success: false, message: 'ลิงก์หรือรหัส YouTube ไม่ถูกต้อง' });
   }
 
-  // ถ้าเป็น Playlist ให้ดึง Video ID ทุกเพลงในเพลย์ลิสต์มาเก็บไว้เลย
   if (musicData.type === 'playlist') {
     const videos = await fetchPlaylistVideoIds(musicData.id);
     if (videos.length > 0) {
       musicData.videos = videos;
-    } else if (musicData.firstVideoId) {
-      musicData.videos = [musicData.firstVideoId];
+      musicData.filtered = true;
     } else {
       return res.status(400).json({
         success: false,
-        message: 'ไม่พบเพลงในเพลย์ลิสต์นี้ (ตรวจสอบว่าตั้งเป็นสาธารณะหรือไม่เป็นสาธารณะแล้ว)',
+        message: 'ไม่พบเพลงในเพลย์ลิสต์ที่อนุญาตให้เล่นนอกเว็บ',
       });
     }
   }
