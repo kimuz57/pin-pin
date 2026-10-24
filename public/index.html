@@ -89,8 +89,11 @@
         font-size: 0.75rem;
         letter-spacing: 0.1em;
         backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
         cursor: pointer;
         transition: all 0.3s ease;
+        position: relative;
+        z-index: 50;
       }
       .glass-btn:hover {
         background: rgba(255, 255, 255, 0.15);
@@ -423,18 +426,18 @@
     <!-- CANVAS LAYER -->
     <canvas id="webgl-canvas"></canvas>
 
-    <!-- กล่องสำหรับฝัง YouTube Iframe -->
+    <!-- กล่องสำหรับฝัง YouTube Iframe (ไม่บังปุ่ม 100%) -->
     <div
       id="yt-player-container"
       style="
         position: fixed;
         bottom: 0;
         right: 0;
-        width: 100px;
-        height: 100px;
-        opacity: 0.01;
+        width: 200px;
+        height: 200px;
+        opacity: 0.002;
         pointer-events: none;
-        z-index: 2;
+        z-index: 1;
         overflow: hidden;
       "
     ></div>
@@ -471,7 +474,7 @@
     </div>
 
     <!-- สคริปต์ -->
-    <script src="ui.js?v=6"></script>
-    <script src="space3d.js?v=6"></script>
+    <script src="ui.js?v=10"></script>
+    <script src="space3d.js?v=10"></script>
   </body>
 </html>

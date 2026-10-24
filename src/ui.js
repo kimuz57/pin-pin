@@ -1,5 +1,5 @@
 // ==========================================
-// ui.js — ระบบเวลา SSE + YouTube Audio (Safari Direct Touch Unlock)
+// ui.js — ระบบเวลา SSE + YouTube Audio (กดติด 100% ทั้ง Chrome & Safari)
 // ==========================================
 
 // 1. DOM Elements
@@ -36,15 +36,38 @@ es.onmessage = (event) => {
 };
 
 // ==========================================
-// 3. ระบบเสียง YouTube (รองรับทั้ง Safari iOS/iPadOS และ Chrome)
+// 3. ระบบเสียง YouTube
 // ==========================================
-let videoQueue = ['jfKfPfyJRdk'];
+let videoQueue = ['_iMizF6rKeY'];
 let currentTrackIndex = 0;
 let isPlaying = false;
 let failedTracksCount = 0;
+let audioCtxUnlocked = false;
 
 const audioBtn = document.getElementById('audio-btn');
 const playerContainer = document.getElementById('yt-player-container');
+
+// ปลดล็อกระบบเสียงของ Safari ทันทีที่กดปุ่ม
+function unlockSafariAudio() {
+  if (audioCtxUnlocked) return;
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (AudioContext) {
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      gain.gain.value = 0.0001;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(0);
+      osc.stop(0.05);
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
+      audioCtxUnlocked = true;
+    }
+  } catch (e) {}
+}
 
 function sendYtCommand(func, args) {
   const iframe = document.getElementById('yt-iframe');
@@ -56,59 +79,7 @@ function sendYtCommand(func, args) {
   }
 }
 
-function setUIPlaying(playing) {
-  isPlaying = playing;
-  if (!audioBtn || !playerContainer) return;
-
-  if (playing) {
-    audioBtn.style.borderColor = 'rgba(255, 200, 100, 0.8)';
-    audioBtn.innerHTML = '<span>◼</span> PAUSE';
-    // เมื่อเสียงเล่นแล้ว ปิดการรับคลิกของ Iframe เพื่อให้กดปุ่ม PAUSE ได้
-    playerContainer.classList.add('playing-mode');
-  } else {
-    audioBtn.style.borderColor = 'rgba(255, 255, 255, 0.15)';
-    audioBtn.innerHTML = '<span>♪</span> SOUND';
-    // เมื่อหยุดเพลง เปิดให้แตะโดน Iframe โดยตรงอีกครั้งเพื่อรองรับ Safari
-    playerContainer.classList.remove('playing-mode');
-  }
-}
-
-function mountIframe(videoId, autoPlay) {
-  if (!playerContainer) return;
-
-  const origin = encodeURIComponent(window.location.origin);
-  const ap = autoPlay ? '1' : '0';
-  let embedUrl =
-    'https://www.youtube.com/embed/' +
-    videoId +
-    '?autoplay=' +
-    ap +
-    '&controls=0&playsinline=1&enablejsapi=1&rel=0&fs=0&origin=' +
-    origin;
-
-  if (videoQueue.length === 1) {
-    embedUrl += '&loop=1&playlist=' + videoId;
-  }
-
-  playerContainer.innerHTML =
-    '<iframe id="yt-iframe" width="140" height="60" src="' +
-    embedUrl +
-    '" frameborder="0" referrerpolicy="origin" allow="autoplay; encrypted-media; compute-pressure" playsinline></iframe>';
-
-  const iframe = document.getElementById('yt-iframe');
-  if (iframe) {
-    iframe.addEventListener('load', () => {
-      if (iframe.contentWindow) {
-        iframe.contentWindow.postMessage(
-          JSON.stringify({ event: 'listening', id: 1 }),
-          '*'
-        );
-      }
-    });
-  }
-}
-
-function applyMusicData(data, autoPlayNow) {
+function applyMusicData(data) {
   if (!data) return;
   if (Array.isArray(data.videos) && data.videos.length > 0) {
     videoQueue = data.videos;
@@ -117,50 +88,39 @@ function applyMusicData(data, autoPlayNow) {
   }
   currentTrackIndex = 0;
   failedTracksCount = 0;
-
-  mountIframe(videoQueue[0], !!autoPlayNow);
 }
 
-// ดึงเพลงที่ผ่านการคัดกรองจาก Server
+// ดึงรายการเพลงจาก Server ตอนเปิดเว็บ
 fetch('/api/music')
   .then((r) => r.json())
   .then((data) => {
-    applyMusicData(data, false);
+    applyMusicData(data);
   })
-  .catch(() => {
-    mountIframe(videoQueue[0], false);
-  });
+  .catch(() => {});
 
 function playNextTrack() {
-  if (videoQueue.length === 0) return;
+  if (!isPlaying || videoQueue.length === 0) return;
   currentTrackIndex = (currentTrackIndex + 1) % videoQueue.length;
-  const nextVideoId = videoQueue[currentTrackIndex];
-  sendYtCommand('loadVideoById', [nextVideoId, 0]);
-  sendYtCommand('playVideo');
+  loadTrackAtIndex(currentTrackIndex);
 }
 
-// ดักฟังสถานะจาก YouTube Iframe
+// ดักฟังข้อความจาก YouTube Iframe
 window.addEventListener('message', (event) => {
   if (!event.origin.includes('youtube.com')) return;
   try {
     const data = JSON.parse(event.data);
 
     if (data.event === 'onReady') {
+      sendYtCommand('unMute');
       sendYtCommand('setVolume', [75]);
+      sendYtCommand('playVideo');
     }
 
     if (data.event === 'infoDelivery' && data.info) {
-      // 1 = PLAYING (เมื่อผู้ใช้แตะโดน Iframe บน Safari แล้วเพลงเริ่มเล่น ปุ่มจะเปลี่ยนเป็น PAUSE อัตโนมัติ)
       if (data.info.playerState === 1) {
         failedTracksCount = 0;
-        setUIPlaying(true);
       }
-      // 2 = PAUSED
-      else if (data.info.playerState === 2) {
-        setUIPlaying(false);
-      }
-      // 0 = ENDED (เล่นจบ -> ไปเพลงถัดไป หรือวนซ้ำ)
-      else if (data.info.playerState === 0) {
+      if (data.info.playerState === 0) {
         if (videoQueue.length > 1) {
           playNextTrack();
         } else {
@@ -170,32 +130,94 @@ window.addEventListener('message', (event) => {
       }
     }
 
-    // ข้ามเพลงที่ติดลิขสิทธิ์
     if (data.event === 'onError') {
       failedTracksCount++;
       if (failedTracksCount < videoQueue.length) {
         playNextTrack();
       } else {
-        setUIPlaying(false);
+        stopAudio();
       }
     }
   } catch (e) {}
 });
 
-// เมื่อคลิกที่ปุ่ม (สำหรับหยุดเพลง หรือสั่งเล่นซ้ำหลังจากปลดล็อก Safari แล้ว)
+function loadTrackAtIndex(index) {
+  if (!playerContainer || videoQueue.length === 0) return;
+
+  const videoId = videoQueue[index] || videoQueue[0];
+
+  // ไม่ใส่ origin เพื่อป้องกันปัญหา Cross-Origin บล็อกเสียงบน Production HTTPS ของ Safari
+  let embedUrl =
+    'https://www.youtube.com/embed/' +
+    videoId +
+    '?autoplay=1&controls=0&playsinline=1&enablejsapi=1&rel=0';
+
+  if (videoQueue.length === 1) {
+    embedUrl += '&loop=1&playlist=' + videoId;
+  }
+
+  playerContainer.innerHTML =
+    '<iframe id="yt-iframe" width="200" height="200" src="' +
+    embedUrl +
+    '" frameborder="0" allow="autoplay; encrypted-media; compute-pressure" playsinline allowfullscreen></iframe>';
+
+  const iframe = document.getElementById('yt-iframe');
+  if (iframe) {
+    iframe.addEventListener('load', () => {
+      if (iframe.contentWindow) {
+        iframe.contentWindow.postMessage(
+          JSON.stringify({ event: 'listening', id: 1 }),
+          '*'
+        );
+        sendYtCommand('unMute');
+        sendYtCommand('setVolume', [75]);
+        sendYtCommand('playVideo');
+      }
+    });
+  }
+}
+
+function startAudio() {
+  if (!playerContainer) return;
+  unlockSafariAudio();
+  isPlaying = true;
+  failedTracksCount = 0;
+
+  if (audioBtn) {
+    audioBtn.style.borderColor = 'rgba(255, 200, 100, 0.8)';
+    audioBtn.innerHTML = '<span>◼</span> PAUSE';
+  }
+
+  loadTrackAtIndex(currentTrackIndex);
+}
+
+function stopAudio() {
+  if (!playerContainer) return;
+  playerContainer.innerHTML = '';
+  isPlaying = false;
+
+  if (audioBtn) {
+    audioBtn.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+    audioBtn.innerHTML = '<span>♪</span> SOUND';
+  }
+}
+
 if (audioBtn) {
-  audioBtn.addEventListener('click', () => {
-    if (isPlaying) {
-      sendYtCommand('pauseVideo');
-      setUIPlaying(false);
+  audioBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (!isPlaying) {
+      startAudio();
     } else {
-      sendYtCommand('unMute');
-      sendYtCommand('setVolume', [75]);
-      sendYtCommand('playVideo');
-      setUIPlaying(true);
+      stopAudio();
     }
   });
 }
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && isPlaying) {
+    sendYtCommand('playVideo');
+  }
+});
 
 // ==========================================
 // 4. ระบบหน้าต่างลับ /change-bg-sound
@@ -285,8 +307,8 @@ function saveNewMusic() {
         modal.classList.remove('active');
         window.history.replaceState({}, '', '/');
 
-        applyMusicData(data.music, true);
-        setUIPlaying(true);
+        applyMusicData(data.music);
+        startAudio();
       } else {
         alert(data.message || 'เกิดข้อผิดพลาดในการบันทึกเพลง');
       }
